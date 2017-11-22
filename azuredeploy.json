@@ -22,55 +22,56 @@
     },
     "dnsNameforLBIP": {
       "type": "string",
+      "defaultValue":"logstashcluster",
       "metadata": {
         "description": "DNS for Load Balancer IP"
       }
     },
     "vmNamePrefix": {
       "type": "string",
-      "defaultValue": "myVM",
+      "defaultValue": "logstashNode",
       "metadata": {
         "description": "Prefix to use for VM names"
       }
     },
     "imagePublisher": {
       "type": "string",
-      "defaultValue": "MicrosoftWindowsServer",
+      "defaultValue": "Canonical",
       "metadata": {
         "description": "Image Publisher"
       }
     },
     "imageOffer": {
       "type": "string",
-      "defaultValue": "WindowsServer",
+      "defaultValue": "UbuntuServer",
       "metadata": {
         "description": "Image Offer"
       }
     },
     "imageSKU": {
       "type": "string",
-      "defaultValue": "2012-R2-Datacenter",
+      "defaultValue": "17.04",
       "metadata": {
         "description": "Image SKU"
       }
     },
     "lbName": {
       "type": "string",
-      "defaultValue": "myLB",
+      "defaultValue": "logstashLB",
       "metadata": {
         "description": "Load Balancer name"
       }
     },
     "nicNamePrefix": {
       "type": "string",
-      "defaultValue": "nic",
+      "defaultValue": "logstashnic",
       "metadata": {
         "description": "Network Interface name prefix"
       }
     },
     "publicIPAddressName": {
       "type": "string",
-      "defaultValue": "myPublicIP",
+      "defaultValue": "logstashLBPublicIP",
       "metadata": {
         "description": "Public IP Name"
       }
@@ -84,15 +85,36 @@
     },
     "vmSize": {
       "type": "string",
-      "defaultValue": "Standard_D1o",
+      "defaultValue": "Standard_D3_v2",
       "metadata": {
         "description": "Size of the VM"
+      }
+    },
+    "numberOfInstances":{
+      "type":"int",
+      "defaultValue": 3,
+      "metadata": {
+        "description": "number of logstash instances in the cluster"
+      } 
+    },
+    "_artifactsLocation": {
+      "defaultValue": "https://raw.githubusercontent.com/paulpc/azure-logstash/master/",
+      "type": "string",
+      "metadata": {
+        "description": "The base URI where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated."
+      }
+    },
+    "commandToExecute": {
+      "type": "string",
+      "defaultValue":"./install-logstash.sh",
+      "metadata": {
+        "description": "The command to execute."
       }
     }
   },
   "variables": {
     "storageAccountType": "Standard_LRS",
-    "availabilitySetName": "myAvSet",
+    "availabilitySetName": "logstashAvSet",
     "addressPrefix": "10.0.0.0/16",
     "subnetName": "Subnet-1",
     "subnetPrefix": "10.0.0.0/24",
@@ -100,7 +122,6 @@
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('subnetName'))]",
     "publicIPAddressID": "[resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName'))]",
-    "numberOfInstances": 2,
     "lbID": "[resourceId('Microsoft.Network/loadBalancers',parameters('lbName'))]",
     "frontEndIPConfigID": "[concat(variables('lbID'),'/frontendIPConfigurations/LoadBalancerFrontEnd')]",
     "lbPoolID": "[concat(variables('lbID'),'/backendAddressPools/BackendPool1')]",
@@ -167,7 +188,7 @@
       "location": "[resourceGroup().location]",
       "copy": {
         "name": "nicLoop",
-        "count": "[variables('numberOfInstances')]"
+        "count": "[parameters('numberOfInstances')]"
       },
       "dependsOn": [
         "[concat('Microsoft.Network/virtualNetworks/', parameters('vnetName'))]",
@@ -189,7 +210,7 @@
               ],
               "loadBalancerInboundNatRules": [
                 {
-                  "id": "[concat(variables('lbID'),'/inboundNatRules/RDP-VM', copyindex())]"
+                  "id": "[concat(variables('lbID'),'/inboundNatRules/logstash-ssh')]"
                 }
               ]
             }
@@ -223,33 +244,21 @@
         ],
         "inboundNatRules": [
           {
-            "name": "RDP-VM0",
+            "name": "ssh-logstash",
             "properties": {
               "frontendIPConfiguration": {
                 "id": "[variables('frontEndIPConfigID')]"
               },
               "protocol": "tcp",
-              "frontendPort": 50001,
-              "backendPort": 3389,
-              "enableFloatingIP": false
-            }
-          },
-          {
-            "name": "RDP-VM1",
-            "properties": {
-              "frontendIPConfiguration": {
-                "id": "[variables('frontEndIPConfigID')]"
-              },
-              "protocol": "tcp",
-              "frontendPort": 50002,
-              "backendPort": 3389,
+              "frontendPort": 22,
+              "backendPort": 22,
               "enableFloatingIP": false
             }
           }
         ],
         "loadBalancingRules": [
           {
-            "name": "LBRule",
+            "name": "jsonOverSSL",
             "properties": {
               "frontendIPConfiguration": {
                 "id": "[variables('frontEndIPConfigID')]"
@@ -258,8 +267,65 @@
                 "id": "[variables('lbPoolID')]"
               },
               "protocol": "tcp",
-              "frontendPort": 80,
-              "backendPort": 80,
+              "frontendPort": 5514,
+              "backendPort": 5514,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[variables('lbProbeID')]"
+              }
+            }
+          },
+          {
+            "name": "syslogOverSSL",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('frontEndIPConfigID')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('lbPoolID')]"
+              },
+              "protocol": "tcp",
+              "frontendPort": 6514,
+              "backendPort": 6514,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[variables('lbProbeID')]"
+              }
+            }
+          },
+          {
+            "name": "syslogAltOverSSL",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('frontEndIPConfigID')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('lbPoolID')]"
+              },
+              "protocol": "tcp",
+              "frontendPort": 5515,
+              "backendPort": 5515,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[variables('lbProbeID')]"
+              }
+            }
+          },
+          {
+            "name": "beatsOverSSL",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('frontEndIPConfigID')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('lbPoolID')]"
+              },
+              "protocol": "tcp",
+              "frontendPort": 5044,
+              "backendPort": 5044,
               "enableFloatingIP": false,
               "idleTimeoutInMinutes": 5,
               "probe": {
@@ -273,7 +339,7 @@
             "name": "tcpProbe",
             "properties": {
               "protocol": "tcp",
-              "port": 80,
+              "port": 5044,
               "intervalInSeconds": 5,
               "numberOfProbes": 2
             }
@@ -287,7 +353,7 @@
       "name": "[concat(parameters('vmNamePrefix'), copyindex())]",
       "copy": {
         "name": "virtualMachineLoop",
-        "count": "[variables('numberOfInstances')]"
+        "count": "[parameters('numberOfInstances')]"
       },
       "location": "[resourceGroup().location]",
       "dependsOn": [
@@ -330,6 +396,31 @@
             "enabled": "true",
             "storageUri": "[concat('http://',parameters('storageAccountName'),'.blob.core.windows.net')]"
           }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(parameters('vmNamePrefix'), copyindex(),'/installcustomscript')]",
+      "apiVersion": "2015-05-01-preview",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "virtualMachineLoop",
+        "count": "[parameters('numberOfInstances')]"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', parameters('vmNamePrefix'), copyindex())]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.0",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "[concat(parameters('_artifactsLocation'), 'install-logstash.sh')]"
+          ],
+          "commandToExecute": "[parameters('commandToExecute')]"
         }
       }
     }
