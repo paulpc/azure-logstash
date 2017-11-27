@@ -337,7 +337,7 @@
                 "id": "[variables('lbProbeID')]"
               }
             }
-          },
+          }
         ],
         "probes": [
           {
