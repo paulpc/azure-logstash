@@ -14,10 +14,16 @@
         "description": "Admin username"
       }
     },
-    "adminPassword": {
-      "type": "securestring",
+    "adminSubnet": {
+      "type": "string",
       "metadata": {
-        "description": "Admin password"
+        "description": "subnet from which to allow ssh and inbound services"
+      }
+    },
+    "sshKeyData": {
+      "type": "string",
+      "metadata": {
+        "description": "SSH rsa public key file as a string."
       }
     },
     "dnsNameforLBIP": {
@@ -119,7 +125,9 @@
     "subnetName": "default",
     "subnetPrefix": "10.0.0.0/24",
     "publicIPAddressType": "Dynamic",
+    "networkSecurityGroupName": "logstashClusterNSG",    
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
+    "sshKeyPath": "[concat('/home/',parameters('adminUsername'),'/.ssh/authorized_keys')]",    
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('subnetName'))]",
     "publicIPAddressID": "[resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName'))]",
     "lbID": "[resourceId('Microsoft.Network/loadBalancers',parameters('lbName'))]",
@@ -149,6 +157,86 @@
       }
     },
     {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[variables('networkSecurityGroupName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "ssh_rule",
+            "properties": {
+              "description": "Locks inbound down to ssh default port 22.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "22",
+              "sourceAddressPrefix": "[parameters('adminSubnet')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 990,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "syslog_rule_1",
+            "properties": {
+              "description": "Allows inbound syslog/tls",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "5514",
+              "sourceAddressPrefix": "[parameters('adminSubnet')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 1000,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "syslog_rule_2",
+            "properties": {
+              "description": "Allows inbound syslog/tls",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "6514",
+              "sourceAddressPrefix": "[parameters('adminSubnet')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 1010,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "syslog_rule_3",
+            "properties": {
+              "description": "Allows inbound syslog/tls",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "5515",
+              "sourceAddressPrefix": "[parameters('adminSubnet')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 1020,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "beats_rule",
+            "properties": {
+              "description": "allows inbound beats.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "5044",
+              "sourceAddressPrefix": "[parameters('adminSubnet')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 1030,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    },
+    {
       "apiVersion": "2015-05-01-preview",
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[parameters('publicIPAddressName')]",
@@ -165,6 +253,9 @@
       "type": "Microsoft.Network/virtualNetworks",
       "name": "[parameters('vnetName')]",
       "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkSecurityGroups/', variables('networkSecurityGroupName'))]"
+      ],
       "properties": {
         "addressSpace": {
           "addressPrefixes": [
@@ -175,7 +266,10 @@
           {
             "name": "[variables('subnetName')]",
             "properties": {
-              "addressPrefix": "[variables('subnetPrefix')]"
+              "addressPrefix": "[variables('subnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
+              }
             }
           }
         ]
@@ -356,7 +450,17 @@
         "osProfile": {
           "computerName": "[concat(parameters('vmNamePrefix'), copyIndex())]",
           "adminUsername": "[parameters('adminUsername')]",
-          "adminPassword": "[parameters('adminPassword')]"
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[variables('sshKeyPath')]",
+                  "keyData": "[parameters('sshKeyData')]"
+                }
+              ]
+            }
+          }
         },
         "storageProfile": {
           "imageReference": {
