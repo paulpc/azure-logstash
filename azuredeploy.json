@@ -242,20 +242,6 @@
             "name": "BackendPool1"
           }
         ],
-        "inboundNatRules": [
-          {
-            "name": "logstash-ssh",
-            "properties": {
-              "frontendIPConfiguration": {
-                "id": "[variables('frontEndIPConfigID')]"
-              },
-              "protocol": "tcp",
-              "frontendPort": 22,
-              "backendPort": 22,
-              "enableFloatingIP": false
-            }
-          }
-        ],
         "loadBalancingRules": [
           {
             "name": "jsonOverSSL",
@@ -332,7 +318,26 @@
                 "id": "[variables('lbProbeID')]"
               }
             }
-          }
+          },
+          {
+            "name": "ssh",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('frontEndIPConfigID')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('lbPoolID')]"
+              },
+              "protocol": "tcp",
+              "frontendPort": 22,
+              "backendPort": 22,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 60,
+              "probe": {
+                "id": "[variables('lbProbeID')]"
+              }
+            }
+          },
         ],
         "probes": [
           {
