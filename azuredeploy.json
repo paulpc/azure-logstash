@@ -207,7 +207,12 @@
                 {
                   "id": "[concat(variables('lbID'), '/backendAddressPools/BackendPool1')]"
                 }
-              ]
+              ],
+              "loadBalancerInboundNatRules": [
+                {
+                  "id": "[concat(variables('lbID'),'/inboundNatRules/ssh-VM', copyindex())]"
+                }
+            ]
             }
           }
         ]
@@ -250,6 +255,7 @@
               "protocol": "tcp",
               "frontendPort": 5514,
               "backendPort": 5514,
+              "loadDistribution": "SourceIPProtocol",
               "enableFloatingIP": false,
               "idleTimeoutInMinutes": 5,
               "probe": {
@@ -269,6 +275,7 @@
               "protocol": "tcp",
               "frontendPort": 6514,
               "backendPort": 6514,
+              "loadDistribution": "SourceIPProtocol",
               "enableFloatingIP": false,
               "idleTimeoutInMinutes": 5,
               "probe": {
@@ -288,6 +295,7 @@
               "protocol": "tcp",
               "frontendPort": 5515,
               "backendPort": 5515,
+              "loadDistribution": "SourceIPProtocol",
               "enableFloatingIP": false,
               "idleTimeoutInMinutes": 5,
               "probe": {
@@ -307,27 +315,9 @@
               "protocol": "tcp",
               "frontendPort": 5044,
               "backendPort": 5044,
+              "loadDistribution": "SourceIPProtocol",
               "enableFloatingIP": false,
               "idleTimeoutInMinutes": 5,
-              "probe": {
-                "id": "[variables('lbProbeID')]"
-              }
-            }
-          },
-          {
-            "name": "ssh",
-            "properties": {
-              "frontendIPConfiguration": {
-                "id": "[variables('frontEndIPConfigID')]"
-              },
-              "backendAddressPool": {
-                "id": "[variables('lbPoolID')]"
-              },
-              "protocol": "tcp",
-              "frontendPort": 22,
-              "backendPort": 22,
-              "enableFloatingIP": false,
-              "idleTimeoutInMinutes": 20,
               "probe": {
                 "id": "[variables('lbProbeID')]"
               }
@@ -345,6 +335,28 @@
             }
           }
         ]
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/loadBalancers/inboundNatRules",
+      "name": "[concat(parameters('lbName'), '/', 'ssh-VM', copyIndex())]",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "lbNatLoop",
+        "count": "[parameters('numberOfInstances')]"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/loadBalancers/', parameters('lbName'))]"
+      ],
+      "properties": {
+        "frontendIPConfiguration": {
+          "id": "[variables('frontEndIPConfigID')]"
+        },
+        "protocol": "tcp",
+        "frontendPort": "[copyIndex(22)]",
+        "backendPort": 22,
+        "enableFloatingIP": false
       }
     },
     {
