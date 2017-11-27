@@ -207,11 +207,6 @@
                 {
                   "id": "[concat(variables('lbID'), '/backendAddressPools/BackendPool1')]"
                 }
-              ],
-              "loadBalancerInboundNatRules": [
-                {
-                  "id": "[concat(variables('lbID'),'/inboundNatRules/logstash-ssh')]"
-                }
               ]
             }
           }
