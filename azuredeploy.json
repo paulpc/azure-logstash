@@ -332,7 +332,7 @@
               "frontendPort": 22,
               "backendPort": 22,
               "enableFloatingIP": false,
-              "idleTimeoutInMinutes": 60,
+              "idleTimeoutInMinutes": 30,
               "probe": {
                 "id": "[variables('lbProbeID')]"
               }
