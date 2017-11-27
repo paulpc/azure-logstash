@@ -334,7 +334,7 @@
       "dependsOn": [
         "[concat('Microsoft.Network/virtualNetworks/', parameters('vnetName'))]",
         "[concat('Microsoft.Network/loadBalancers/', parameters('lbName'))]",
-        "[concat['Microsoft.Network/loadBalancers/inboundNatRules/','ssh-VM', copyIndex())]"
+        "[concat('Microsoft.Network/loadBalancers/inboundNatRules/','ssh-VM', copyIndex())]"
       ],
       "properties": {
         "ipConfigurations": [
