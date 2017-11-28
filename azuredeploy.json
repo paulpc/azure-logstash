@@ -89,6 +89,28 @@
         "description": "VNET name"
       }
     },
+    "addressPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.0.0/16",
+      "metadata": {
+        "description": "address prefix for the vnet selected"
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "defaultValue": "default",
+      "metadata": {
+        "description": "subnet name"
+      }
+    },
+    "subnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.0.0/24",
+      "metadata": {
+        "description": "subnet prefix for the vnet selected"
+      }
+    },
+    
     "vmSize": {
       "type": "string",
       "defaultValue": "Standard_D3_v2",
@@ -121,14 +143,11 @@
   "variables": {
     "storageAccountType": "Standard_LRS",
     "availabilitySetName": "logstashAvSet",
-    "addressPrefix": "10.0.0.0/16",
-    "subnetName": "default",
-    "subnetPrefix": "10.0.0.0/24",
     "publicIPAddressType": "Dynamic",
     "networkSecurityGroupName": "logstashClusterNSG",    
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
     "sshKeyPath": "[concat('/home/',parameters('adminUsername'),'/.ssh/authorized_keys')]",    
-    "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('subnetName'))]",
+    "subnetRef": "[concat(variables('vnetID'),'/subnets/',parameters ('subnetName'))]",
     "publicIPAddressID": "[resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName'))]",
     "lbID": "[resourceId('Microsoft.Network/loadBalancers',parameters('lbName'))]",
     "frontEndIPConfigID": "[concat(variables('lbID'),'/frontendIPConfigurations/LoadBalancerFrontEnd')]",
@@ -259,14 +278,14 @@
       "properties": {
         "addressSpace": {
           "addressPrefixes": [
-            "[variables('addressPrefix')]"
+            "[parameters('addressPrefix')]"
           ]
         },
         "subnets": [
           {
-            "name": "[variables('subnetName')]",
+            "name": "[parameters('subnetName')]",
             "properties": {
-              "addressPrefix": "[variables('subnetPrefix')]",
+              "addressPrefix": "[parameters('subnetPrefix')]",
               "networkSecurityGroup": {
                 "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
               }
